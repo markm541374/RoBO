@@ -72,7 +72,7 @@ class GaussianProcessMCMC(BaseModel):
         self.lower = lower
         self.upper = upper
 
-    @BaseModel._check_shapes_train
+#    @BaseModel._check_shapes_train
     def train(self, X, y, do_optimize=True, **kwargs):
         """
         Performs MCMC sampling to sample hyperparameter configurations from the
@@ -200,7 +200,7 @@ class GaussianProcessMCMC(BaseModel):
         else:
             return self.gp.lnlikelihood(self.y, quiet=True)
 
-    @BaseModel._check_shapes_predict
+#    @BaseModel._check_shapes_predict
     def predict(self, X_test, **kwargs):
         r"""
         Returns the predictive mean and variance of the objective function
