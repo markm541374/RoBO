@@ -197,11 +197,17 @@ class InformationGain(BaseAcquisitionFunction):
 
     def dh_fun(self, x, derivative=False):
 
+        
         if not (np.all(np.isfinite(self.lmb))):
-            logger.debug(self.zb[np.where(np.isinf(self.lmb))],
-                        self.lmb[np.where(np.isinf(self.lmb))])
-            raise Exception(
-                "lmb should not be infinite.")
+            #    logger.debug(self.zb[np.where(np.isinf(self.lmb))],
+            #               self.lmb[np.where(np.isinf(self.lmb))])
+            #    raise Exception(
+            #        "lmb should not be infinite.")
+            acc=0
+            for i in np.where(np.isinf(self.lmb)):
+                self.lmb[i]=-999.
+                acc+=1
+            logger.warn("replaced {} of {} -inf in lmb with -999".format(acc    ,self.lmb.shape[0]))
 
         D = x.shape[1]
         # If x is a vector, convert it to a matrix (some functions are
