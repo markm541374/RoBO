@@ -206,9 +206,21 @@ def mtbo(objective_function, lower, upper,
 
         # Estimate incumbent by projecting all observed points to the task of interest and
         # pick the point with the lowest mean prediction
-        incumbent, incumbent_value = projected_incumbent_estimation(model_objective,
-                                                                    transform(X, lower, upper)[:, :-1],
-                                                                    proj_value=n_tasks-1)
+        if mod:
+            incumbent,incumbent_value = projected_incumbent_optimization(model_objective,
+                                                                         lower,
+                                                                         upper,
+                                                                         proj_value=n_tasks-1)
+            ix,iy = projected_incumbent_estimation(model_objective,
+                                                    transform(X, lower, upper)[:, :-1],
+                                                    proj_value=n_tasks-1)
+            print "would otherwise be {} {}".format(ix,iy)
+
+        else:
+            incumbent, incumbent_value = projected_incumbent_estimation(model_objective,
+                                                                        transform(X, lower, upper)[:, :-1],
+                                                                        proj_value=n_tasks-1)
+        
         incumbent[:-1] = normalization.zero_one_unnormalization(incumbent[:-1], lower, upper)
         incumbents.append(incumbent)
         logger.info("Current incumbent %s with estimated performance %f", str(incumbent), incumbent_value)
