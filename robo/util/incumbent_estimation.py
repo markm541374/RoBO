@@ -16,7 +16,7 @@ def projected_incumbent_optimization(model,lower,upper):
     print model
     print model.X
     def f(x,aux):
-        x_proj = np.hstack([x,np.array([1])])[np.newaxis,:]
+        x_proj = np.hstack([x,np.array([proj_value])])[np.newaxis,:]
         y = model.predict(x_proj)
 #        print y
         return y[0][0],0.
