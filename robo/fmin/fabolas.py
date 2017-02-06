@@ -4,12 +4,14 @@ import logging
 import numpy as np
 
 from robo.models.fabolas_gp import FabolasGPMCMC
+from robo.models.gaussian_process_mcmc import GaussianProcessMCMC
 from robo.initial_design import init_random_uniform
 from robo.priors.env_priors import EnvPrior
+from robo.priors.default_priors import DefaultPrior
 from robo.acquisition_functions.information_gain_per_unit_cost import InformationGainPerUnitCost
 from robo.acquisition_functions.marginalization import MarginalizationGPMCMC
 from robo.maximizers.direct import Direct
-from robo.util.incumbent_estimation import projected_incumbent_estimation
+from robo.util.incumbent_estimation import projected_incumbent_estimation, projected_incumbent_optimization
 
 
 logger = logging.getLogger(__name__)
@@ -273,7 +275,7 @@ def fabolas(objective_function, lower, upper, s_min, s_max,
 
 def fabolas_mod(objective_function, lower, upper, s_min, s_max,
             n_init=40, num_iterations=100, subsets=[256, 128, 64],
-            burnin=100, chain_length=200, n_hypers=20, rng=None):
+            burnin=100, chain_length=200, n_hypers=20, rng=None,switchestimator=False,switchkernel=False):
     """
     Fast Bayesian Optimization of Machine Learning Hyperparameters
     on Large Datasets
@@ -338,46 +340,68 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
     kernel = cov_amp
 
     # ARD Kernel for the configuration space
-    for d in range(n_dims+1):
-        kernel *= george.kernels.Matern52Kernel(np.ones([1]) * 0.01,
-                                                ndim=n_dims+1, dim=d)
+    if switchkernel:
+        for d in range(n_dims+1):
+            kernel *= george.kernels.Matern52Kernel(np.ones([1]) * 0.01,
+                                                    ndim=n_dims+1, dim=d)
+        degree = 1
 
-    # Kernel for the environmental variable
-    # We use (1-s)**2 as basis function for the Bayesian linear kernel
-    degree = 1
-    #env_kernel = george.kernels.BayesianLinearRegressionKernel(n_dims+1,
-    #                                                           dim=n_dims,
-    #                                                           degree=degree)
-    #env_kernel[:] = np.ones([degree + 1]) * 0.1
+        # Take 3 times more samples than we have hyperparameters
+        if n_hypers < 2*n_dims:
+            n_hypers = 3 * len(kernel)
+            if n_hypers % 2 == 1:
+                n_hypers += 1
 
-    #kernel *= env_kernel
+        prior = DefaultPrior(len(kernel) + 1)
 
-    # Take 3 times more samples than we have hyperparameters
-    if n_hypers < 2*n_dims:
-        n_hypers = 3 * len(kernel)
-        if n_hypers % 2 == 1:
-            n_hypers += 1
+        model_objective = GaussianProcessMCMC(kernel,
+                                        prior=prior,
+                                        burnin_steps=burnin,
+                                        chain_length=chain_length,
+                                        n_hypers=n_hypers,
+                                        normalize_input=False,
+                                        rng=rng)
 
-    prior = EnvPrior(len(kernel) + 1,
-                     n_ls=n_dims,
-                     n_lr=(degree + 1),
-                     rng=rng)
 
-    quadratic_bf = lambda x: (1 - x) ** 2
-    linear_bf = lambda x: x
+    else:
+        for d in range(n_dims):
+            kernel *= george.kernels.Matern52Kernel(np.ones([1]) * 0.01,
+                                                    ndim=n_dims+1, dim=d)
+        degree = 1
+        env_kernel = george.kernels.BayesianLinearRegressionKernel(n_dims+1,
+                                                               dim=n_dims,
+                                                               degree=degree)
+        env_kernel[:] = np.ones([degree + 1]) * 0.1
 
-    model_objective = FabolasGPMCMC(kernel,
-                                    prior=prior,
-                                    burnin_steps=burnin,
-                                    chain_length=chain_length,
-                                    n_hypers=n_hypers,
-                                    normalize_output=False,
-                                    basis_func=quadratic_bf,
-                                    lower=lower,
-                                    upper=upper,
-                                    rng=rng)
+        kernel *= env_kernel
+
+        # Take 3 times more samples than we have hyperparameters
+        if n_hypers < 2*n_dims:
+            n_hypers = 3 * len(kernel)
+            if n_hypers % 2 == 1:
+                n_hypers += 1
+
+        prior = EnvPrior(len(kernel) + 1,
+                         n_ls=n_dims,
+                         n_lr=(degree + 1),
+                         rng=rng)
+
+        quadratic_bf = lambda x: (1 - x) ** 2
+
+        model_objective = FabolasGPMCMC(kernel,
+                                        prior=prior,
+                                        burnin_steps=burnin,
+                                        chain_length=chain_length,
+                                        n_hypers=n_hypers,
+                                        normalize_output=False,
+                                        basis_func=quadratic_bf,
+                                        lower=lower,
+                                        upper=upper,
+                                        rng=rng)
+
 
     # Define model for the cost function
+    linear_bf = lambda x: x
     cost_cov_amp = 1
 
     cost_kernel = cost_cov_amp
@@ -446,7 +470,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
         # Bookkeeping
         config = np.append(x, transform(s, s_min, s_max))
         X.append(config)
-        y.append(np.log(func_val))  # Model the target function on a logarithmic scale
+        y.append(np.exp(np.log(func_val)))  # Model the target function on a logarithmic scale
         c.append(np.log(cost))  # Model the cost on a logarithmic scale
 
         # Estimate incumbent as the best observed value so far
@@ -471,11 +495,19 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
 
         # Estimate incumbent by projecting all observed points to the task of interest and
         # pick the point with the lowest mean prediction
-        incumbent, incumbent_value = projected_incumbent_estimation(model_objective, X[:, :-1],
+        if switchestimator:
+            incumbent, incumbent_value = projected_incumbent_optimization(model_objective,lower,upper)
+
+            i,iv = projected_incumbent_estimation(model_objective, X[:, :-1],
                                                                     proj_value=1)
+            print "otherwise would be {} {}".format(i,iv)
+        else:
+            incumbent, incumbent_value = projected_incumbent_estimation(model_objective, X[:, :-1],
+                                                                    proj_value=1)
+
         incumbents.append(incumbent[:-1])
         logger.info("Current incumbent %s with estimated performance %f",
-                    str(incumbent), np.exp(incumbent_value))
+                    str(incumbent), np.log(np.exp(incumbent_value)))
 
         # Maximize acquisition function
         acquisition_func.update(model_objective, model_cost)
@@ -496,7 +528,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
 
         # Add new observation to the data
         X = np.concatenate((X, new_x[None, :]), axis=0)
-        y = np.concatenate((y, np.log(np.array([new_y]))), axis=0)  # Model the target function on a logarithmic scale
+        y = np.concatenate((y, np.exp(np.log(np.array([new_y])))), axis=0)  # Model the target function on a logarithmic scale
         c = np.concatenate((c, np.log(np.array([new_c]))), axis=0)  # Model the cost function on a logarithmic scale
 
         runtime.append(time.time() - time_start)
@@ -516,4 +548,3 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
     results["overhead"] = time_overhead
     results["time_func_eval"] = time_func_eval
     return results
-
