@@ -1,5 +1,6 @@
 import numpy as np
-
+import DIRECT
+import time
 
 def projected_incumbent_estimation(model, X, proj_value=1):
     projection = np.ones([X.shape[0], 1]) * proj_value
@@ -12,7 +13,9 @@ def projected_incumbent_estimation(model, X, proj_value=1):
     incumbent_value = m[best]
 
     return incumbent, incumbent_value
-def projected_incumbent_optimization(model,lower,upper):
+
+def projected_incumbent_optimization(model,lower,upper,proj_value=1):
+    t0=time.clock()
     print model
     print model.X
     def f(x,aux):
@@ -20,8 +23,9 @@ def projected_incumbent_optimization(model,lower,upper):
         y = model.predict(x_proj)
 #        print y
         return y[0][0],0.
-    xmin,ymin,ierror = DIRECT.solve(f,lower,upper,maxf=1000)
+    xmin,ymin,ierror = DIRECT.solve(f,lower,upper,maxf=2000,logfilename='/dev/null')
     print "incumbent from posterior optimization: {} {}".format(xmin, ymin)
+    t1=time.clock()
     if False:
         from matplotlib import pyplot as plt
         import scipy as sp
