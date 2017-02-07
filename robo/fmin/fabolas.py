@@ -182,7 +182,7 @@ def fabolas(objective_function, lower, upper, s_min, s_max,
                                     n_representer=50)
     acquisition_func = MarginalizationGPMCMC(ig)
     maximizer = Direct(acquisition_func, extend_lower, extend_upper, verbose=False)
-
+    recctimes=[]
     # Initial Design
     logger.info("Initial Design")
     for i in range(n_init):
@@ -204,11 +204,11 @@ def fabolas(objective_function, lower, upper, s_min, s_max,
         X.append(config)
         y.append(np.log(func_val))  # Model the target function on a logarithmic scale
         c.append(np.log(cost))  # Model the cost on a logarithmic scale
-
+        t0=time.clock()
         # Estimate incumbent as the best observed value so far
         best_idx = np.argmin(y)
         incumbents.append(X[best_idx][:-1])  # Incumbent is always on s=s_max
-
+        recctimes.append(time.clock()-t0)
         time_overhead.append(time.time() - start_time_overhead)
         runtime.append(time.time() - time_start)
 
@@ -224,7 +224,7 @@ def fabolas(objective_function, lower, upper, s_min, s_max,
         # Train models
         model_objective.train(X, y, do_optimize=True)
         model_cost.train(X, c, do_optimize=True)
-
+        t0=time.clock()
         # Estimate incumbent by projecting all observed points to the task of interest and
         # pick the point with the lowest mean prediction
         incumbent, incumbent_value = projected_incumbent_estimation(model_objective, X[:, :-1],
@@ -232,7 +232,7 @@ def fabolas(objective_function, lower, upper, s_min, s_max,
         incumbents.append(incumbent[:-1])
         logger.info("Current incumbent %s with estimated performance %f",
                     str(incumbent), np.exp(incumbent_value))
-
+        recctimes.append(time.clock()-t0)
         # Maximize acquisition function
         acquisition_func.update(model_objective, model_cost)
         new_x = maximizer.maximize()
@@ -271,6 +271,7 @@ def fabolas(objective_function, lower, upper, s_min, s_max,
     results["runtime"] = runtime
     results["overhead"] = time_overhead
     results["time_func_eval"] = time_func_eval
+    results['recctimes'] = recctimes
     return results
 
 def fabolas_mod(objective_function, lower, upper, s_min, s_max,
@@ -450,7 +451,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
                                     n_representer=50)
     acquisition_func = MarginalizationGPMCMC(ig)
     maximizer = Direct(acquisition_func, extend_lower, extend_upper, verbose=False)
-
+    incumbenttimes=[]
     # Initial Design
     logger.info("Initial Design")
     for i in range(n_init):
@@ -472,11 +473,11 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
         X.append(config)
         y.append(np.exp(np.log(func_val)))  # Model the target function on a logarithmic scale
         c.append(np.log(cost))  # Model the cost on a logarithmic scale
-
+        t0=time.clock()
         # Estimate incumbent as the best observed value so far
         best_idx = np.argmin(y)
         incumbents.append(X[best_idx][:-1])  # Incumbent is always on s=s_max
-
+        incumbenttimes.append(time.clock()-t0)
         time_overhead.append(time.time() - start_time_overhead)
         runtime.append(time.time() - time_start)
 
@@ -495,6 +496,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
 
         # Estimate incumbent by projecting all observed points to the task of interest and
         # pick the point with the lowest mean prediction
+        t0=time.clock()
         if switchestimator:
             incumbent, incumbent_value = projected_incumbent_optimization(model_objective,lower,upper)
 
@@ -508,7 +510,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
         incumbents.append(incumbent[:-1])
         logger.info("Current incumbent %s with estimated performance %f",
                     str(incumbent), np.log(np.exp(incumbent_value)))
-
+        incumbenttimes.append(time.clock()-t0)
         # Maximize acquisition function
         acquisition_func.update(model_objective, model_cost)
         new_x = maximizer.maximize()
@@ -547,4 +549,5 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
     results["runtime"] = runtime
     results["overhead"] = time_overhead
     results["time_func_eval"] = time_func_eval
+    results["recctimes"] = incumbenttimes
     return results
