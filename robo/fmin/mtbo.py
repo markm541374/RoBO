@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 import george
 import logging
@@ -217,7 +218,7 @@ def mtbo(objective_function, lower, upper,
             ix,iy = projected_incumbent_estimation(model_objective,
                                                     transform(X, lower, upper)[:, :-1],
                                                     proj_value=n_tasks-1)
-            print "would otherwise be {} {}".format(ix,iy)
+            print( "would otherwise be {} {}".format(ix,iy))
 
         else:
             incumbent, incumbent_value = projected_incumbent_estimation(model_objective,
