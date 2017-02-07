@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import DIRECT
 import time
@@ -16,15 +17,15 @@ def projected_incumbent_estimation(model, X, proj_value=1):
 
 def projected_incumbent_optimization(model,lower,upper,proj_value=1):
     t0=time.clock()
-    print model
-    print model.X
+    print( model)
+    #print model.X
     def f(x,aux):
         x_proj = np.hstack([x,np.array([proj_value])])[np.newaxis,:]
         y = model.predict(x_proj)
 #        print y
         return y[0][0],0.
     xmin,ymin,ierror = DIRECT.solve(f,lower,upper,maxf=2000,logfilename='/dev/null')
-    print "incumbent from posterior optimization: {} {}".format(xmin, ymin)
+    print( "incumbent from posterior optimization: {} {}".format(xmin, ymin))
     t1=time.clock()
     if False:
         from matplotlib import pyplot as plt
