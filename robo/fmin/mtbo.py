@@ -11,7 +11,7 @@ from robo.acquisition_functions.information_gain_per_unit_cost import Informatio
 from robo.acquisition_functions.marginalization import MarginalizationGPMCMC
 from robo.maximizers.direct import Direct
 from robo.util import normalization
-from robo.util.incumbent_estimation import projected_incumbent_estimation
+from robo.util.incumbent_estimation import projected_incumbent_estimation,projected_incumbent_optimization
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def transformation(X, acq, lower, upper):
 
 def mtbo(objective_function, lower, upper,
          n_tasks=2, n_init=2, num_iterations=30,
-         burnin=100, chain_length=200, rng=None):
+         burnin=100, chain_length=200, rng=None,mod=False):
     """
     Interface to MTBO[1] which uses an auxiliary cheaper task to speed up the optimization
     of a more expensive but similar task.
@@ -162,7 +162,7 @@ def mtbo(objective_function, lower, upper,
 
     wrapper_func = partial(transformation, acq=acquisition_func, lower=lower, upper=upper)
     maximizer = Direct(wrapper_func, extend_lower, extend_upper, verbose=True)
-
+    incumbenttimes=[]
     # Initial Design
     for _ in range(n_init):
         logger.info("Initial design")
@@ -185,9 +185,10 @@ def mtbo(objective_function, lower, upper,
         c.append(cost)
 
         # Estimate incumbent as the best observed value so far
+        t0=time.clock()
         best_idx = np.argmin(y)
         incumbents.append(np.append(X[best_idx], n_tasks-1))  # Incumbent is always on the task of interest
-
+        incumbenttimes.append(time.clock()-t0)
         time_overhead.append(time.time() - start_time_overhead)
         runtime.append(time.time() - time_start)
 
@@ -205,12 +206,14 @@ def mtbo(objective_function, lower, upper,
         model_cost.train(transform(X, lower, upper), c, do_optimize=True)
 
         # Estimate incumbent by projecting all observed points to the task of interest and
-        # pick the point with the lowest mean prediction
+        # pick the point with the lowest mean prediction#
+        t0=time.clock()
         if mod:
-            incumbent,incumbent_value = projected_incumbent_optimization(model_objective,
+            incumbent,incumbent_value= projected_incumbent_optimization(model_objective,
                                                                          lower,
                                                                          upper,
                                                                          proj_value=n_tasks-1)
+
             ix,iy = projected_incumbent_estimation(model_objective,
                                                     transform(X, lower, upper)[:, :-1],
                                                     proj_value=n_tasks-1)
@@ -220,7 +223,7 @@ def mtbo(objective_function, lower, upper,
             incumbent, incumbent_value = projected_incumbent_estimation(model_objective,
                                                                         transform(X, lower, upper)[:, :-1],
                                                                         proj_value=n_tasks-1)
-        
+        incumbenttimes.append(time.clock()-t0)
         incumbent[:-1] = normalization.zero_one_unnormalization(incumbent[:-1], lower, upper)
         incumbents.append(incumbent)
         logger.info("Current incumbent %s with estimated performance %f", str(incumbent), incumbent_value)
@@ -265,5 +268,6 @@ def mtbo(objective_function, lower, upper,
     results["runtime"] = runtime
     results["overhead"] = time_overhead
     results["time_func_eval"] = time_func_eval
+    results["recctimes"]=incumbenttimes
 
     return results
