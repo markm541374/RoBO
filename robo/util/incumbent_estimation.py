@@ -36,7 +36,7 @@ def projected_incumbent_optimization(model,lower,upper,proj_value=1):
         z_ = sp.empty([n, n])
         s_ = sp.empty([n, n])
         for i in range(n):
-            print '\r{}'.format(i),
+#            print( '\r{}'.format(i),)
             for j in range(n):
                 m_, v_ = model.predict(np.array([[y_[j], x_[i],1.]]))
                 z_[i, j] = m_[0]
