@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 import george
 import logging
@@ -502,7 +503,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
 
             i,iv = projected_incumbent_estimation(model_objective, X[:, :-1],
                                                                     proj_value=1)
-            print "otherwise would be {} {}".format(i,iv)
+            print( "otherwise would be {} {}".format(i,iv))
         else:
             incumbent, incumbent_value = projected_incumbent_estimation(model_objective, X[:, :-1],
                                                                     proj_value=1)
