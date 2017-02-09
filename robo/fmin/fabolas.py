@@ -472,7 +472,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
         # Bookkeeping
         config = np.append(x, transform(s, s_min, s_max))
         X.append(config)
-        y.append(np.exp(np.log(func_val)))  # Model the target function on a logarithmic scale
+        y.append(func_val)  # Model the target function on a logarithmic scale
         c.append(np.log(cost))  # Model the cost on a logarithmic scale
         t0=time.clock()
         # Estimate incumbent as the best observed value so far
@@ -531,7 +531,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
 
         # Add new observation to the data
         X = np.concatenate((X, new_x[None, :]), axis=0)
-        y = np.concatenate((y, np.exp(np.log(np.array([new_y])))), axis=0)  # Model the target function on a logarithmic scale
+        y = np.concatenate((y, np.array([new_y])), axis=0)  # Model the target function on a logarithmic scale
         c = np.concatenate((c, np.log(np.array([new_c]))), axis=0)  # Model the cost function on a logarithmic scale
 
         runtime.append(time.time() - time_start)
