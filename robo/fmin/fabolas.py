@@ -277,7 +277,7 @@ def fabolas(objective_function, lower, upper, s_min, s_max,
 
 def fabolas_mod(objective_function, lower, upper, s_min, s_max,
             n_init=40, num_iterations=100, subsets=[256, 128, 64],
-            burnin=100, chain_length=200, n_hypers=20, rng=None,switchestimator=False,switchkernel=False):
+            burnin=100, chain_length=200, n_hypers=20, rng=None,switchestimator=False,switchkernel=False,timelimit=np.Inf):
     """
     Fast Bayesian Optimization of Machine Learning Hyperparameters
     on Large Datasets
@@ -485,16 +485,16 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
     X = np.array(X)
     y = np.array(y)
     c = np.array(c)
-
+    overheadaccumulate=0
     for it in range(n_init, num_iterations):
         logger.info("Start iteration %d ... ", it)
 
         start_time = time.time()
-
+        time0=time.clock()
         # Train models
         model_objective.train(X, y, do_optimize=True)
         model_cost.train(X, c, do_optimize=True)
-
+        time1=time.clock()
         # Estimate incumbent by projecting all observed points to the task of interest and
         # pick the point with the lowest mean prediction
         t0=time.clock()
@@ -513,12 +513,14 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
                     str(incumbent), np.log(np.exp(incumbent_value)))
         incumbenttimes.append(time.clock()-t0)
         # Maximize acquisition function
+        time2=time.clock()
         acquisition_func.update(model_objective, model_cost)
         new_x = maximizer.maximize()
         s = retransform(new_x[-1], s_min, s_max)  # Map s from log space to original linear space
-
+        time3=time.clock()
         time_overhead.append(time.time() - start_time)
         logger.info("Optimization overhead was %f seconds", time_overhead[-1])
+        logger.critical("\naccumulated ev time {}\naccumulated aq time {}\nthisaq train time {}\nthis aq search time{}\n".format(np.sum(np.exp(c)),overheadaccumulate,time1-time0,time3-time2))
 
         # Evaluate the chosen configuration
         logger.info("Evaluate candidate %s on subset size %f", str(new_x[:-1]), s)
@@ -535,6 +537,10 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
         c = np.concatenate((c, np.log(np.array([new_c]))), axis=0)  # Model the cost function on a logarithmic scale
 
         runtime.append(time.time() - time_start)
+        overheadaccumulate += time3-time2+time1-time0
+        logger.critical("timeused {}, time limit{}".format(overheadaccumulate+np.sum(c),timelimit))
+        if overheadaccumulate+np.sum(np.exp(c))>timelimit:
+            break
 
     # Estimate the final incumbent
     model_objective.train(X, y, do_optimize=True)
