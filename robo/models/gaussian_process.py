@@ -111,7 +111,7 @@ class GaussianProcess(BaseModel):
             self.hypers = self.gp.kernel[:]
             self.hypers = np.append(self.hypers, np.log(self.noise))
 
-        logger.debug("GP Hyperparameters: " + str(self.hypers))
+        #logger.debug("GP Hyperparameters: " + str(self.hypers))
 
         self.gp.compute(self.X, yerr=np.sqrt(self.noise))
 
