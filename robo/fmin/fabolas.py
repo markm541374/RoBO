@@ -538,7 +538,7 @@ def fabolas_mod(objective_function, lower, upper, s_min, s_max,
 
         runtime.append(time.time() - time_start)
         overheadaccumulate += time3-time2+time1-time0
-        logger.critical("timeused {}, time limit{}".format(overheadaccumulate+np.sum(c),timelimit))
+        logger.critical("timeused {}, time limit{}".format(overheadaccumulate+np.sum(np.exp(c)),timelimit))
         if overheadaccumulate+np.sum(np.exp(c))>timelimit:
             break
 
